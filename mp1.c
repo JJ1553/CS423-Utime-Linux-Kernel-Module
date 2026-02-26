@@ -27,7 +27,8 @@
 
 #include "mp1_given.h"
 
-
+#define ALLOC_SIZE 32
+#define TIMER_INTERVAL 5000
 
 
 // !!!!!!!!!!!!! IMPORTANT !!!!!!!!!!!!!
@@ -71,7 +72,7 @@ static void mp1_work_fn(struct work_struct *work) {
 /* Timer callback function to schedule work for updating CPU usage and reschedule the timer */
 static void mp1_timer_fn(struct timer_list *timer) {
 	schedule_work(&mp1_work);
-	mod_timer(&mp1_timer, jiffies + msecs_to_jiffies(5000));
+	mod_timer(&mp1_timer, jiffies + msecs_to_jiffies(TIMER_INTERVAL));
 }
 
 
@@ -100,12 +101,13 @@ static ssize_t mp1_status_write(struct file *file, const char __user *buffer, si
 	int err;
 	size_t len = 0;
 	struct mp1_entry *tmp, *entry;
-
+	unsigned long init_cpu = 0;
+	int ret;
 	
 	if (count == 0)
 		return 0;	
-	else if (count > 32)
-		count = 32;
+	else if (count > ALLOC_SIZE)
+		count = ALLOC_SIZE;
 	
 	buf = memdup_user_nul(buffer, count); //copy the input from user space and ensure it is null terminated
 	if (IS_ERR(buf))
@@ -122,7 +124,12 @@ static ssize_t mp1_status_write(struct file *file, const char __user *buffer, si
 	}
 
 	pr_debug( "Received PID: %d\n", pid);
-
+	
+	ret = get_cpu_use(pid, &init_cpu);
+	if (ret < 0) {
+		kfree(buf);
+		return -EINVAL;
+	}
 	mutex_lock(&mp1_lock);
 		list_for_each_entry(tmp, &mp1_list, list) {
 			if(tmp->pid == pid) {
@@ -142,7 +149,7 @@ static ssize_t mp1_status_write(struct file *file, const char __user *buffer, si
 		}
 
 		entry->pid = pid;
-		entry->cpu_use = 0; 
+		entry->cpu_use = init_cpu; 
 		list_add_tail(&entry->list, &mp1_list); //add the new entry to the end of the list
 	mutex_unlock(&mp1_lock);
 	
@@ -173,7 +180,7 @@ static int __init test_module_init(void)
 	//initialize the work struct and timer, then schedule the first timer event for 5 seconds in the future
 	INIT_WORK(&mp1_work, mp1_work_fn);
 	timer_setup(&mp1_timer, mp1_timer_fn, 0);
-	mod_timer(&mp1_timer, jiffies + msecs_to_jiffies(5000));
+	mod_timer(&mp1_timer, jiffies + msecs_to_jiffies(TIMER_INTERVAL));
 
 	return 0;
 }
