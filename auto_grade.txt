@@ -1,0 +1,14 @@
+readme: 5/5
+commented code: 5/5
+compile_no_warn: 5/5
+insert: 5/5
+remove: 5/5
+proc_fs: 10/10
+proc write: 5/5
+proc read: 5/5
+multi process: 10/10
+userapp: 10/10
+interrupt handler: 15/15
+critical region: 5/5
+free memory: 10/10
+integrity(memleak,lockdep etc.): 5/5
